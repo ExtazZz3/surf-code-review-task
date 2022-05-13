@@ -9,9 +9,9 @@ import java.util.stream.Stream;
 
 
 public class Index {
-    TreeMap<String, List<Pointer>> invertedIndex;
+    TreeMap<String, List<Pointer>> invertedIndex; //может быть private
 
-    ExecutorService pool;
+    ExecutorService pool; //может быть private
 
     public Index(ExecutorService pool) {
         this.pool = pool;
@@ -21,7 +21,9 @@ public class Index {
     public void indexAllTxtInPath(String pathToDir) throws IOException {
         Path of = Path.of(pathToDir);
 
-        BlockingQueue<Path> files = new ArrayBlockingQueue<>(2);
+        BlockingQueue<Path> files = new ArrayBlockingQueue<>(2); //если будет больше чем 2 файла, то будет исключение
+        //при попытке добавить третий файл, поэтому нужно либо сделать возможность задать capacity как размер files, либо,
+        //если не должно быть больше двух файлов, добавить какую-то логику которая будет обрабатывать попытку добавить третий файл
 
         try (Stream<Path> stream = Files.list(of)) {
             stream.forEach(files::add);
@@ -29,18 +31,20 @@ public class Index {
 
         pool.submit(new IndexTask(files));
         pool.submit(new IndexTask(files));
-        pool.submit(new IndexTask(files));
+        pool.submit(new IndexTask(files)); //зачем три раза?
     }
-
+    //использовать SortedMap?; что если index будет изменён, будет ли правильно возвращать его?
     public TreeMap<String, List<Pointer>> getInvertedIndex() {
         return invertedIndex;
     }
 
     public List<Pointer> GetRelevantDocuments(String term) {
+        //.get() может быть nullable
         return invertedIndex.get(term);
     }
 
     public Optional<Pointer> getMostRelevantDocument(String term) {
+        //.get() может быть nullable
         return invertedIndex.get(term).stream().max(Comparator.comparing(o -> o.count));
     }
 
@@ -72,9 +76,9 @@ public class Index {
             try {
                 Path take = queue.take();
                 List<String> strings = Files.readAllLines(take);
-
+                //методы stream разделить по строкам точками
                 strings.stream().flatMap(str -> Stream.of(str.split(" "))).forEach(word -> invertedIndex.compute(word, (k, v) -> {
-                    if (v == null) return List.of(new Pointer(1, take.toString()));
+                    if (v == null) return List.of(new Pointer(1, take.toString())); //выделить if в фигурные скобки
                     else {
                         ArrayList<Pointer> pointers = new ArrayList<>();
 
@@ -83,7 +87,8 @@ public class Index {
                         }
 
                         v.forEach(pointer -> {
-                            if (pointer.filePath.equals(take.toString())) {
+                            if (pointer.filePath.equals(take.toString())) { //take.toString() использован уже 4 раза,
+                                //создать переменную было бы лучше
                                 pointer.count = pointer.count + 1;
                             }
                         });
@@ -95,8 +100,8 @@ public class Index {
 
                 }));
 
-            } catch (InterruptedException | IOException e) {
-                throw new RuntimeException();
+            } catch (InterruptedException | IOException e) { //разделить на разные блоки catch, также использовать interrupt
+                throw new RuntimeException(); //сделать возможно своё исключение вместо стандартного Runtime?
             }
         }
     }
